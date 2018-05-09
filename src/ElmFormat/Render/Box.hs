@@ -292,7 +292,7 @@ formatModuleLine elmVersion header =
     exports list =
       case formatListing (formatDetailedListing elmVersion) $ list of
           Just listing ->
-            listing
+            checkListing listing
           _ ->
               pleaseReport "UNEXPECTED MODULE DECLARATION" "empty listing"
 
@@ -491,7 +491,7 @@ formatImport elmVersion (name, method) =
             (preKeyword, (postKeyword, Just listing')) ->
               case
                 ( formatHeadCommented (line . keyword) (preKeyword, keyw)
-                , formatHeadCommented id (postKeyword, listing')
+                , checkListing $ formatHeadCommented id (postKeyword, listing')
                 )
               of
                 (SingleLine keyword', SingleLine listing'') ->

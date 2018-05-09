@@ -1,14 +1,17 @@
 {-# OPTIONS_GHC -Wall #-}
+{-# LANGUAGE OverloadedStrings #-}
 module Box
   ( Line, identifier, keyword, punc, literal, row, space
   , Box(SingleLine, MustBreak), blankLine, line, mustBreak, stack', stack1, andThen
   , isLine, allSingles, lineLength
   , indent, prefix, addSuffix
   , render
+  , checkListing
   ) where
 
 import Elm.Utils ((|>))
 
+import Data.Char (isLetter)
 import qualified Data.Text as T
 
 
@@ -310,3 +313,44 @@ renderRow startColumn lines' =
 rowLength :: Int -> [Line] -> Int
 rowLength startColumn lines' =
   snd $ renderRow' startColumn lines'
+
+checkListing :: Box -> Box
+checkListing box@(SingleLine listing) =
+  case items listing of
+    a:b:rest | length rest > 2 -> stackListing a b rest
+             | otherwise -> box
+    _ -> box
+  where
+    items (Row [Row lines']) = concatMap ident lines'
+    items (Row lines') = concatMap ident lines'
+    items _ = []
+
+    ident (Text txt)   | isVar (T.unpack txt) = [txt]
+                       | otherwise = []
+
+    ident (Row lines') | isType lines' = [T.concat $ concatMap smooshText lines']
+                       | otherwise     = concatMap ident lines'
+    ident _ = []
+
+    isVar str@(c:_) = isLetter c || length str > 1
+    isVar [] = False
+
+    smooshText (Text txt) | txt == "," = [", "]
+                          | otherwise  = [txt]
+    smooshText (Row lines') = concatMap smooshText lines'
+    smooshText _ = []
+
+    isType (Row [Text _]:Row (Text "(":_):_) = True
+    isType _ = False
+
+checkListing other = other
+
+stackListing :: T.Text -> T.Text -> [T.Text] -> Box
+stackListing item1 item2 items =
+    Stack (open item1)
+          (line' item2)
+          (map line' items ++ [literal ")"])
+  where
+    open  n = Row [Row [literal "(", Space], Row [Text n]]
+    line' n = Row [Row [literal ",", Space], Row [Text n]]
+
